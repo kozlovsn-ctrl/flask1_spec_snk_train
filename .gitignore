@@ -1,1 +1,9 @@
-/flask_venv/
+.idea/
+.vscode
+*.pyc
+__pycache__/
+*env/
+*.db
+*.sqlite
+*.sqlite3
+*.tmp
