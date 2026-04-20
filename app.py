@@ -85,6 +85,30 @@ def update_quote_by_id(quotes_list, quote_id, new_author, new_text, new_rating):
 def quotes_list():
     return quotes
 
+#Полный список цитат
+@app.route("/quotes/filter")
+def filtered_quotes_list():
+    found_quotes = []
+    args = request.args
+    arg_author = args.get('author')
+    arg_rating = args.get('rating')
+    for quote in quotes:
+        if (((arg_author is not None) 
+           and (arg_rating is not None) 
+           and (quote["author"] == arg_author)
+           and (quote["rating"] == int(arg_rating)))
+           or
+           ((arg_author is not None) 
+           and (arg_rating is None) 
+           and (quote["author"] == arg_author))
+           or
+           ((arg_author is None) 
+           and (arg_rating is not None) 
+           and (quote["rating"] == int(arg_rating)))):
+            found_quotes.append(quote)
+    return found_quotes
+
+
 #Пересчитываем наличные цитаты
 @app.route("/quotes/count")
 def quotes_count():
