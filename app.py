@@ -27,26 +27,30 @@ quotes = [
 разработчиков программ, стремящихся писать программы с
 большей и лучшей идиотоустойчивостью, и вселенной, которая
 пытается создать больше отборных идиотов. Пока вселенная
-побеждает."""
+побеждает.""",
+"rating": 5
 },
 {
 "id": 5,
 "author": "Waldi Ravens",
 "text": """Программирование на С похоже на быстрые танцы
 на только что отполированном полу людей с острыми бритвами в
-руках."""
+руках.""",
+"rating": 3
 },
 {
 "id": 6,
 "author": "Mosher’s Law of Software Engineering",
 "text": """Не волнуйтесь, если что-то не работает. Если
-бы всё работало, вас бы уволили."""
+бы всё работало, вас бы уволили.""",
+"rating": 4
 },
 {
 "id": 8,
 "author": "Yoggi Berra",
 "text": """В теории, теория и практика неразделимы. На
-практике это не так."""
+практике это не так.""",
+"rating": 2
 },
 ]
 
@@ -67,11 +71,12 @@ def get_new_quote_id (quotes):
     return max_id+1
 
 #Меняем содержимое цитаты по id
-def update_quote_by_id(quotes_list, quote_id, new_author, new_text):
+def update_quote_by_id(quotes_list, quote_id, new_author, new_text, new_rating):
     for quote in quotes_list:
         if quote["id"] == quote_id:
             quote["author"] = new_author
             quote["text"] = new_text
+            quote["rating"] = new_rating
             return True
     return False    
 
@@ -105,7 +110,16 @@ def quote_get_by_id(quote_id):
 def create_quote():
     data = request.json
     new_id = get_new_quote_id (quotes)
-    new_quote = {"id": new_id, **data}
+    if "rating" in data:
+        if  1 <= data["rating"] <= 5:
+            new_quote = {"id": new_id, **data}
+        else:
+            new_quote = {"id": new_id, 
+                         "author": data["author"], 
+                         "text": data["text"],
+                         "rating": 1}
+    else:
+        new_quote = {"id": new_id, **data, "rating": 1}
     quotes.append(new_quote) 
     return get_quote_by_id(quotes, new_id), 201
 
@@ -123,7 +137,11 @@ def edit_quote(id):
             new_text = new_data["text"]
         else:
             new_text = quote["text"]
-        update_quote_by_id(quotes, id, new_author, new_text)
+        new_rating = quote["rating"]
+        if "rating" in new_data:
+            if  1 <= new_data["rating"] <= 5:
+                new_rating = new_data["rating"]
+        update_quote_by_id(quotes, id, new_author, new_text, new_rating)
         quote = get_quote_by_id (quotes, id)
         result_code = '200'
     else:
@@ -139,7 +157,7 @@ def delete(id):
         if quote["id"] == id:
             quotes.pop(i)
             return f"Цитата с id={id} удалена.", 200
-    return f"Цитата с id={id} не найдена.",404
+    return f"Цитата с id={id} не найдена.", 404
     
 
 if __name__ == "__main__":
