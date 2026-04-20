@@ -1,3 +1,4 @@
+import random
 from flask import Flask
 
 app = Flask(__name__)
@@ -48,9 +49,28 @@ quotes = [
 },
 ]
 
-@app.route("/quotes")
+quotes_by_id = {quote["id"]: quote for quote in quotes}
+
+@app.route("/quotes/")
 def quotes_list():
     return quotes
+
+@app.route("/quotes/count")
+def quotes_count():
+    quotes_num = {"count": len(quotes)}
+    return quotes_num
+
+@app.route("/quotes/random")
+def quotes_rnd():
+    random_quote = random.choice(quotes)
+    return random_quote
+
+@app.route("/quotes/<int:quote_id>")
+def quote_get_by_id(quote_id):
+    quote = quotes_by_id.get(quote_id)
+    if quote is None:
+        return f"Цитата с id={quote_id} не найдена", 404
+    return quote
 
 
 if __name__ == "__main__":
