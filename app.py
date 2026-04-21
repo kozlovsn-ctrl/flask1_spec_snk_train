@@ -63,12 +63,7 @@ def get_quote_by_id(quotes, target_id):
 
 #Новый id для вставки
 def get_new_quote_id (quotes):
-    quotes_by_id = {quote["id"]: quote for quote in quotes}
-    if quotes_by_id:
-        max_id = max(quotes_by_id.keys())
-    else:
-        max_id = 0
-    return max_id+1
+    return max((quote["id"] for quote in quotes), default=0) + 1
 
 #Меняем содержимое цитаты по id
 def update_quote_by_id(quotes_list, quote_id, new_author, new_text, new_rating):
