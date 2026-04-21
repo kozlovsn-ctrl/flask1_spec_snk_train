@@ -4,7 +4,8 @@ create_table = """
 CREATE TABLE IF NOT EXISTS quotes (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 author TEXT NOT NULL,
-text TEXT NOT NULL
+text TEXT NOT NULL,
+rating INTEGER NOT NULL
 );
 """
 # Подключение в БД
