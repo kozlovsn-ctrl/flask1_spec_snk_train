@@ -66,7 +66,7 @@ def get_new_quote_id (quotes):
     return max((quote["id"] for quote in quotes), default=0) + 1
 
 #Меняем содержимое цитаты по id
-def update_quote_by_id(quotes_list, quote_id, new_author, new_text, new_rating):
+def update_quote_by_id_(quotes_list, quote_id, new_author, new_text, new_rating):
     for quote in quotes_list:
         if quote["id"] == quote_id:
             quote["author"] = new_author
@@ -74,6 +74,15 @@ def update_quote_by_id(quotes_list, quote_id, new_author, new_text, new_rating):
             quote["rating"] = new_rating
             return True
     return False    
+
+def update_quote_by_id(quotes_list, quote_id, new_data):
+    for quote in quotes_list:
+        if quote["id"] == quote_id:
+            if "rating" in new_data and not (1 <= new_data["rating"] <= 5):
+                new_data.pop("rating")  
+            quote.update(new_data)
+            return quote
+    return None    
 
 #Полный список цитат
 @app.route("/quotes/")
@@ -146,27 +155,12 @@ def create_quote():
 @app.route("/quotes/<int:id>", methods=['PUT'])
 def edit_quote(id):
     new_data = request.json
-    quote = get_quote_by_id (quotes, id)
-    if quote is not None:
-        if "author" in new_data:
-            new_author = new_data["author"]
-        else:
-            new_author = quote["author"]
-        if "text" in new_data:
-            new_text = new_data["text"]
-        else:
-            new_text = quote["text"]
-        new_rating = quote["rating"]
-        if "rating" in new_data:
-            if  1 <= new_data["rating"] <= 5:
-                new_rating = new_data["rating"]
-        update_quote_by_id(quotes, id, new_author, new_text, new_rating)
-        quote = get_quote_by_id (quotes, id)
-        result_code = '200'
-    else:
-        result_code = '404'
-        quote = {}
-    return quote, result_code
+    allowed_fields = {"author", "text", "rating"}
+    filtered_data = {k: v for k, v in new_data.items() if k in allowed_fields}
+    updated_quote = update_quote_by_id(quotes, id, filtered_data)
+    if updated_quote is None:
+        return {}, 404
+    return updated_quote, 200
 
 #Удаляем указанную цитату
 @app.route("/quotes/<int:id>", methods=['DELETE'])
