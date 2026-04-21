@@ -1,6 +1,5 @@
 import random
-from flask import Flask
-from flask import request
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -130,7 +129,7 @@ def quotes_rnd():
 def quote_get_by_id(quote_id):
     quote = get_quote_by_id (quotes, quote_id)
     if quote is None:
-        return f"Цитата с id={quote_id} не найдена", 404
+        return jsonify({"message": f"Цитата с id={quote_id} не найдена"}), 404
     return quote
 
 #Вносим новую цитату
@@ -169,8 +168,8 @@ def delete(id):
     for i, quote in enumerate(quotes):
         if quote["id"] == id:
             quotes.pop(i)
-            return f"Цитата с id={id} удалена.", 200
-    return f"Цитата с id={id} не найдена.", 404
+            return jsonify({"message": f"Цитата с id={id} удалена."}), 200
+    return jsonify({"message": f"Цитата с id={id} не найдена."}), 404
     
 
 if __name__ == "__main__":
