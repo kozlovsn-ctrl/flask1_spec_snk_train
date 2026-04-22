@@ -286,14 +286,11 @@ def fill_database():
         
         created_authors = []
         created_quotes = []
-        
         for author_name, author_data in test_data.items():
-            # Проверяем, существует ли уже автор (не удалённый)
             existing_author = db.session.query(AuthorModel).filter(
                 AuthorModel.name == author_name,
                 AuthorModel.deleted == False
             ).first()
-            
             if existing_author:
                 author = existing_author
                 created_authors.append(f"{author_name} (уже существовал)")
@@ -305,15 +302,12 @@ def fill_database():
                 db.session.add(author)
                 db.session.flush()
                 created_authors.append(f"{author_name} {author_data['surname']}")
-            
-            # Добавляем цитаты для автора
             for quote_text, rating in author_data["quotes"]:
                 existing_quote = db.session.query(QuoteModel).filter_by(
                     author_id=author.id,
                     text=quote_text,
                     deleted=False
                 ).first()
-                
                 if not existing_quote:
                     quote = QuoteModel(
                         author=author,
@@ -322,16 +316,13 @@ def fill_database():
                     )
                     db.session.add(quote)
                     created_quotes.append(f"'{quote_text[:30]}...' - {author_name} (рейтинг: {rating})")
-        
         db.session.commit()
-        
         return jsonify({
             "message": "База данных успешно заполнена тестовыми данными",
             "added_authors": created_authors,
             "added_quotes_count": len(created_quotes),
             "quotes_sample": created_quotes[:5] + ["..."] if len(created_quotes) > 5 else created_quotes
         }), 201
-        
     except Exception as e:
         db.session.rollback()
         return jsonify({
