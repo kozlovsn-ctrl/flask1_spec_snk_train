@@ -1,27 +1,25 @@
 import random
 from flask import Flask, request, jsonify, g
 from pathlib import Path
-import sqlite3
-
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String
+from flask_migrate import Migrate
 
 class Base(DeclarativeBase):
     pass
 
-
 BASE_DIR = Path(__file__).parent
-DATABASE = BASE_DIR / "store.db"  # <- тут путь к БД
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{BASE_DIR / 'main.db'}"
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{BASE_DIR / 'quotes.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
+migrate = Migrate(app, db)
 
 # Добавил столбец с рейтингом в существующую базу (в консоли с контекстом):
 # with db.engine.connect() as conn:
