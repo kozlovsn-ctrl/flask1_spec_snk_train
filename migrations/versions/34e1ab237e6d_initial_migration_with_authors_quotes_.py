@@ -1,8 +1,8 @@
-"""Initial migration with rating
+"""Initial migration with authors, quotes, rating, surname, deleted, created
 
-Revision ID: e190c5123995
+Revision ID: 34e1ab237e6d
 Revises: 
-Create Date: 2026-04-22 19:28:16.652191
+Create Date: 2026-04-22 20:40:52.451888
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e190c5123995'
+revision = '34e1ab237e6d'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -21,6 +21,8 @@ def upgrade():
     op.create_table('authors',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=32), nullable=False),
+    sa.Column('surname', sa.String(length=32), nullable=True),
+    sa.Column('deleted', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('authors', schema=None) as batch_op:
@@ -31,6 +33,8 @@ def upgrade():
     sa.Column('author_id', sa.Integer(), nullable=False),
     sa.Column('text', sa.String(length=255), nullable=False),
     sa.Column('rating', sa.Integer(), nullable=False),
+    sa.Column('created', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column('deleted', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['author_id'], ['authors.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
