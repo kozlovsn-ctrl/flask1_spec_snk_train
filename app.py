@@ -73,7 +73,7 @@ def create_author():
        return author.to_dict(), 201
 
 @app.route("/authors/<int:author_id>/quotes", methods=["POST"])
-def create_quote(author_id: int):
+def create_authors_quote(author_id: int):
    author = db.session.get(author_id)
    new_quote = request.json
    q = QuoteModel(author, new_quote["text"])
