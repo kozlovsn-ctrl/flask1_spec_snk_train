@@ -58,11 +58,28 @@ class QuoteModel(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "author": self.author,
             "text": self.text
         }
 
 ################################ Обработчики ################################
+
+#Создание автора
+@app.route("/authors", methods=["POST"])
+def create_author():
+       author_data = request.json
+       author = AuthorModel(author_data["name"])
+       db.session.add(author)
+       db.session.commit()
+       return author.to_dict(), 201
+
+@app.route("/authors/<int:author_id>/quotes", methods=["POST"])
+def create_quote(author_id: int):
+   author = db.session.get(author_id)
+   new_quote = request.json
+   q = QuoteModel(author, new_quote["text"])
+   db.session.add(q)
+   db.session.commit()
+   return q.to_dict(), 201
 
 # Полный список цитат
 @app.route("/quotes/")
