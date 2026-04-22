@@ -24,11 +24,6 @@ db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Добавил столбец с рейтингом в существующую базу (в консоли с контекстом):
-# with db.engine.connect() as conn:
-#     conn.execute(db.text('ALTER TABLE quotes ADD COLUMN rating INTEGER DEFAULT 1 NOT NULL'))
-#     conn.commit()
-
 class AuthorModel(db.Model):
     __tablename__ = 'authors'
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -174,6 +169,63 @@ def filtered_quotes_list():
     quotes_db = db.session.scalars(query).all()
     quotes = [quote.to_dict() for quote in quotes_db]
     return jsonify(quotes), 200
+
+# Добавление тестовых данных
+@app.route("/db/fillitcomplete", methods=['GET'])
+def fill_database():
+    try:
+        test_data = {
+            "Альберт Эйнштейн": [
+                "Жизнь - как езда на велосипеде. Чтобы сохранить равновесие, ты должен двигаться.",
+                "Воображение важнее знаний.",
+                "Бесконечны только Вселенная и человеческая глупость, причём насчёт Вселенной я не уверен."
+            ],
+            "Конфуций": [
+                "Выберите работу по душе, и вам не придётся работать ни одного дня в своей жизни.",
+                "Настоящая доброта проистекает из сердца. Никогда не оставляй в своём сердце места для злобы.",
+                "Неважно, как медленно ты идёшь, главное - не останавливаться."
+            ],
+            "Оскар Уайльд": [
+                "Будь собой, прочие роли уже заняты.",
+                "Я всегда с огромным удовольствием узнаю, что меня в чём-то не устраивает - значит, я не такой, как все.",
+                "Лучший способ избавиться от искушения - поддаться ему."
+            ]
+        }
+        created_authors = []
+        created_quotes = []
+        for author_name, quotes_texts in test_data.items():
+            existing_author = db.session.query(AuthorModel).filter_by(name=author_name).first()
+            if existing_author:
+                author = existing_author
+                created_authors.append(f"{author_name} (уже существовал)")
+            else:
+                author = AuthorModel(author_name)
+                db.session.add(author)
+                db.session.flush()  # Чтобы получить author.id
+                created_authors.append(author_name)
+            for quote_text in quotes_texts:
+                existing_quote = db.session.query(QuoteModel).filter_by(
+                    author_id=author.id, 
+                    text=quote_text
+                ).first()
+                if not existing_quote:
+                    quote = QuoteModel(author, quote_text)
+                    db.session.add(quote)
+                    created_quotes.append(f"'{quote_text[:30]}...' - {author_name}")
+        db.session.commit()
+        return jsonify({
+            "message": "База данных успешно заполнена тестовыми данными",
+            "added_authors": created_authors,
+            "added_quotes_count": len(created_quotes),
+            "total_quotes_added": created_quotes[:5] + ["..."] if len(created_quotes) > 5 else created_quotes  # Показываем первые 5
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "Ошибка при заполнении базы данных",
+            "details": str(e)
+        }), 500    
 
 ################################ Запуск ################################
 
