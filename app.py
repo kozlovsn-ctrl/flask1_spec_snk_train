@@ -27,54 +27,63 @@ migrate = Migrate(app, db)
 class AuthorModel(db.Model):
     __tablename__ = 'authors'
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[int] = mapped_column(String(32), index= True, unique=True)
-    quotes: Mapped[list['QuoteModel']] = relationship( back_populates='author', lazy='dynamic')
+    name: Mapped[str] = mapped_column(String(32), index=True, unique=True)  
+    quotes: Mapped[list['QuoteModel']] = relationship(back_populates='author', lazy='dynamic')
 
     def __init__(self, name):
         self.name = name
 
     def to_dict(self):
         return {
-            "name": self.text,
+            "name": self.name,  
+            "id": self.id
         }
 
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
-
     id: Mapped[int] = mapped_column(primary_key=True)
-    author_id: Mapped[str] = mapped_column(ForeignKey('authors.id'))
+    author_id: Mapped[int] = mapped_column(ForeignKey('authors.id'))
     author: Mapped['AuthorModel'] = relationship(back_populates='quotes')
     text: Mapped[str] = mapped_column(String(255))
+    rating: Mapped[int] = mapped_column(nullable=False, default=1) 
 
-    def __init__(self, author, text):
+    def __init__(self, author, text, rating=1):
         self.author = author
-        self.text  = text
+        self.text = text
+        self.rating = rating
 
     def to_dict(self):
         return {
             "id": self.id,
-            "text": self.text
+            "text": self.text,
+            "rating": self.rating, 
+            "author_name": self.author.name  
         }
 
 ################################ Обработчики ################################
 
-#Создание автора
+# Создание автора
 @app.route("/authors", methods=["POST"])
 def create_author():
-       author_data = request.json
-       author = AuthorModel(author_data["name"])
-       db.session.add(author)
-       db.session.commit()
-       return author.to_dict(), 201
+    author_data = request.json
+    author = AuthorModel(author_data["name"])
+    db.session.add(author)
+    db.session.commit()
+    return jsonify(author.to_dict()), 201  
 
 @app.route("/authors/<int:author_id>/quotes", methods=["POST"])
 def create_authors_quote(author_id: int):
-   author = db.session.get(author_id)
-   new_quote = request.json
-   q = QuoteModel(author, new_quote["text"])
-   db.session.add(q)
-   db.session.commit()
-   return q.to_dict(), 201
+    author = db.session.get(AuthorModel, author_id)
+    if not author:
+        return jsonify({"Ошибка": f"Автор с id={author_id} не найден"}), 404
+    new_quote = request.json
+    rating = new_quote.get("rating", 1)
+    if rating < 1 or rating > 5:
+        rating = 1
+    q = QuoteModel(author, new_quote["text"], rating)
+    db.session.add(q)
+    db.session.commit()
+    return jsonify(q.to_dict()), 201
 
 # Полный список цитат
 @app.route("/quotes/")
@@ -169,14 +178,63 @@ def filtered_quotes_list():
     quotes_db = db.session.scalars(query).all()
     quotes = [quote.to_dict() for quote in quotes_db]
     return jsonify(quotes), 200
-
-       
+  
+# Добавление тестовых данных
+@app.route("/db/fillitcomplete", methods=['GET'])
+def fill_database():
+    try:
+        test_data = {
+            "Альберт Эйнштейн": [
+                "Жизнь - как езда на велосипеде. Чтобы сохранить равновесие, ты должен двигаться.",
+                "Воображение важнее знаний.",
+                "Бесконечны только Вселенная и человеческая глупость, причём насчёт Вселенной я не уверен."
+            ],
+            "Конфуций": [
+                "Выберите работу по душе, и вам не придётся работать ни одного дня в своей жизни.",
+                "Настоящая доброта проистекает из сердца. Никогда не оставляй в своём сердце места для злобы.",
+                "Неважно, как медленно ты идёшь, главное - не останавливаться."
+            ],
+            "Оскар Уайльд": [
+                "Будь собой, прочие роли уже заняты.",
+                "Я всегда с огромным удовольствием узнаю, что меня в чём-то не устраивает - значит, я не такой, как все.",
+                "Лучший способ избавиться от искушения - поддаться ему."
+            ]
+        }
+        created_authors = []
+        created_quotes = []
+        for author_name, quotes_texts in test_data.items():
+            existing_author = db.session.query(AuthorModel).filter_by(name=author_name).first()
+            if existing_author:
+                author = existing_author
+                created_authors.append(f"{author_name} (уже существовал)")
+            else:
+                author = AuthorModel(author_name)
+                db.session.add(author)
+                db.session.flush()  
+                created_authors.append(author_name)
+            for quote_text in quotes_texts:
+                existing_quote = db.session.query(QuoteModel).filter_by(
+                    author_id=author.id, 
+                    text=quote_text
+                ).first()
+                
+                if not existing_quote:
+                    quote = QuoteModel(author, quote_text)
+                    db.session.add(quote)
+                    created_quotes.append(f"'{quote_text[:30]}...' - {author_name}")
+        db.session.commit()
+        return jsonify({
+            "message": "База данных успешно заполнена тестовыми данными",
+            "added_authors": created_authors,
+            "added_quotes_count": len(created_quotes),
+            "total_quotes_added": created_quotes[:5] + ["..."] if len(created_quotes) > 5 else created_quotes  # Показываем первые 5
+        }), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({
             "error": "Ошибка при заполнении базы данных",
             "details": str(e)
-        }), 500    
+        }), 500
 
 ################################ Запуск ################################
 
