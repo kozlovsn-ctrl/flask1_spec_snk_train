@@ -6,6 +6,9 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String
 from flask_migrate import Migrate
+from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey
+
 
 class Base(DeclarativeBase):
     pass
@@ -26,25 +29,37 @@ migrate = Migrate(app, db)
 #     conn.execute(db.text('ALTER TABLE quotes ADD COLUMN rating INTEGER DEFAULT 1 NOT NULL'))
 #     conn.commit()
 
+class AuthorModel(db.Model):
+    __tablename__ = 'authors'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[int] = mapped_column(String(32), index= True, unique=True)
+    quotes: Mapped[list['QuoteModel']] = relationship( back_populates='author', lazy='dynamic')
+
+    def __init__(self, name):
+        self.name = name
+
+    def to_dict(self):
+        return {
+            "name": self.text,
+        }
+
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    author: Mapped[str] = mapped_column(String(32))
+    author_id: Mapped[str] = mapped_column(ForeignKey('authors.id'))
+    author: Mapped['AuthorModel'] = relationship(back_populates='quotes')
     text: Mapped[str] = mapped_column(String(255))
-    rating: Mapped[int] = mapped_column(default=1)
 
-    def __init__(self, author, text, rating):
+    def __init__(self, author, text):
         self.author = author
         self.text  = text
-        self.rating = rating
 
     def to_dict(self):
         return {
             "id": self.id,
             "author": self.author,
-            "text": self.text,
-            "rating": self.rating
+            "text": self.text
         }
 
 ################################ Обработчики ################################
