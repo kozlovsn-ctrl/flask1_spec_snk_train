@@ -80,12 +80,49 @@ class QuoteModel(db.Model):
      
 ###################### Авторы ######################
 # Получить список авторов
+# @app.route("/authors")
+# def authors_list():
+#     authors_db = db.session.query(AuthorModel).filter(AuthorModel.deleted == False).all()
+#     authors = []
+#     for author in authors_db:
+#         authors.append(author.to_dict())
+#     return jsonify(authors), 200
+
+# Получить список авторов с сортировкой
 @app.route("/authors")
 def authors_list():
-    authors_db = db.session.query(AuthorModel).filter(AuthorModel.deleted == False).all()
-    authors = []
-    for author in authors_db:
-        authors.append(author.to_dict())
+    query = db.session.query(AuthorModel).filter(AuthorModel.deleted == False)
+    orderby = request.args.get('orderby')
+    asc = request.args.get('asc', 'true').lower() == 'true'  # по умолчанию True
+    if orderby == 'name':
+        if asc:
+            query = query.order_by(AuthorModel.name.asc())
+        else:
+            query = query.order_by(AuthorModel.name.desc())
+    elif orderby == 'surname':
+        if asc:
+            query = query.order_by(AuthorModel.surname.asc())
+        else:
+            query = query.order_by(AuthorModel.surname.desc())
+    elif orderby == 'fullname':
+        if asc:
+            query = query.order_by(AuthorModel.surname.asc(), AuthorModel.name.asc())
+        else:
+            query = query.order_by(AuthorModel.surname.desc(), AuthorModel.name.desc())
+    else:
+        if asc:
+            query = query.order_by(AuthorModel.id.asc())
+        else:
+            query = query.order_by(AuthorModel.id.desc())
+    authors_db = query.all()
+    authors = [author.to_dict() for author in authors_db]
+    return jsonify(authors), 200
+
+# Получить список всех удалённых авторов
+@app.route("/alldeletedauthors")
+def all_deleted_authors():
+    authors_db = db.session.query(AuthorModel).filter(AuthorModel.deleted == True).all()
+    authors = [author.to_dict() for author in authors_db]
     return jsonify(authors), 200
 
 # Получить автора по id
@@ -140,8 +177,36 @@ def delete_author(author_id: int):
         author.deleted = True
         db.session.query(QuoteModel).filter_by(author_id=author_id).update({"deleted": True})
         db.session.commit()
-        return jsonify({"message": f"Автор '{author.name}' и все его цитаты помечены как удалённые"}), 200    
+        return jsonify({"message": f"Автор '{author_id}' и все его цитаты помечены как удалённые"}), 200    
     return jsonify({"Ошибка": f"Автор с id={author_id} не найден"}), 404
+
+# Восстанавливаем всех удалённых авторов и их цитаты
+@app.route("/restorealldeletedauthors", methods=['PUT'])
+def restore_all_deleted_authors():
+    deleted_authors = db.session.query(AuthorModel).filter(AuthorModel.deleted == True).all()
+    if not deleted_authors:
+        return jsonify({
+            "message": "Нет удалённых авторов для восстановления",
+            "restored_authors_count": 0,
+            "restored_quotes_count": 0
+        }), 200
+    restored_authors = []
+    restored_quotes_count = 0
+    for author in deleted_authors:
+        author.deleted = False
+        restored_authors.append(f"{author.name} {author.surname or ''}".strip())
+        quotes_count = db.session.query(QuoteModel).filter(
+            QuoteModel.author_id == author.id,
+            QuoteModel.deleted == True
+        ).update({"deleted": False})
+        restored_quotes_count += quotes_count
+    db.session.commit()
+    return jsonify({
+        "message": f"Восстановлено {len(restored_authors)} авторов и {restored_quotes_count} цитат",
+        "restored_authors": restored_authors,
+        "restored_authors_count": len(restored_authors),
+        "restored_quotes_count": restored_quotes_count
+    }), 200    
 
 ###################### Цитаты ######################
 # Полный список цитат
@@ -250,24 +315,41 @@ def edit_quote(quote_id):
         return jsonify(quote.to_dict()), 200
     return jsonify({"Ошибка": f"Цитата с id={quote_id} не найдена"}), 404
 
-# Фильтрованный список цитат
-@app.route("/quotes/filter")
-def filtered_quotes_list():
-    args = request.args
-    arg_author = args.get('author')
-    arg_rating = args.get('rating')
-    query = db.select(QuoteModel)
-    if arg_author is not None and arg_rating is not None:
-        query = query.where(QuoteModel.author == arg_author, QuoteModel.rating == int(arg_rating))
-    elif arg_author is not None:
-        query = query.where(QuoteModel.author == arg_author)
-    elif arg_rating is not None:
-        query = query.where(QuoteModel.rating == int(arg_rating))
-    else:
-        return jsonify({}), 400
-    quotes_db = db.session.scalars(query).all()
-    quotes = [quote.to_dict() for quote in quotes_db]
-    return jsonify(quotes), 200
+# Изменяем рейтинг цитаты 
+@app.route("/quotes/<int:quote_id>/rating", methods=['PUT'])
+def change_quote_rating(quote_id):
+    direction = request.args.get('set')
+    if direction not in ['up', 'down']:
+        return jsonify({"Ошибка": "Параметр 'set' должен быть 'up' или 'down'"}), 400
+    quote = db.session.query(QuoteModel).join(AuthorModel).filter(
+        QuoteModel.id == quote_id,
+        QuoteModel.deleted == False,
+        AuthorModel.deleted == False
+    ).first()
+    if quote:
+        if direction == 'up' and quote.rating < 5:
+            quote.rating += 1
+        elif direction == 'down' and quote.rating > 1:
+            quote.rating -= 1
+        db.session.commit()
+        return jsonify(quote.to_dict()), 200    
+    return jsonify({"Ошибка": f"Цитата с id={quote_id} не найдена"}), 404
+
+# Восстановить все удалённые цитаты у неудалённых авторов
+@app.route("/restorealldeletedquotes", methods=['PUT'])
+def restore_all_deleted_quotes():
+    deleted_quotes = db.session.query(QuoteModel).join(AuthorModel).filter(
+        QuoteModel.deleted == True,
+        AuthorModel.deleted == False
+    ).all()
+    if not deleted_quotes:
+        return jsonify({"message": "Нет удалённых цитат для восстановления"}), 200
+    restored_quotes_num = 0
+    for quote in deleted_quotes:
+        quote.deleted = False
+        restored_quotes_num += 1
+    db.session.commit()
+    return jsonify({"message": f"Восстановлено {restored_quotes_num} цитат"}), 200    
 
 ################################ Запуск ################################
 
